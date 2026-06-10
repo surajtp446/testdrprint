@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>3D Print Price Calculator — Dr.PrinT Bengaluru</title>
+  <meta name="description" content="Upload your STL or OBJ file and get an instant 3D print price estimate. No signup, no waiting. Dr.PrinT Bengaluru.">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/calculator/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <span>Dr.PrinT</span>
+        <span class="logo-sub">Price Calculator</span>
+      </a>
+      <div class="header-right">
+        <a href="/" class="btn-ghost">← Back to Site</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===== UPLOAD SCREEN ===== -->
+    <section id="upload-screen">
+
+      <div class="hero">
+        <div class="hero-badge">Instant Quote Calculator</div>
+        <h1 class="hero-title">3D Print Price<br>in Seconds</h1>
+        <p class="hero-sub">Upload your model, pick your settings — get a precise price estimate instantly. No signup, no waiting.</p>
+        <div class="feature-pills">
+          <span class="pill">STL &amp; OBJ</span>
+          <span class="pill">Bambu G-code</span>
+          <span class="pill">Live 3D Preview</span>
+          <span class="pill">100% Local</span>
+        </div>
+      </div>
+
+      <div class="upload-card">
+        <div class="upload-zone" id="drop-zone">
+          <div class="upload-visual">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M32 6 L58 21 L58 43 L32 58 L6 43 L6 21 Z" stroke="#fff" stroke-width="1.5" fill="rgba(255,255,255,0.04)"/>
+              <path d="M32 6 L32 26 M58 21 L32 26 M6 21 L32 26" stroke="#fff" stroke-width="1.5" fill="none" opacity="0.4"/>
+              <path d="M32 32 L32 50" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M24 40 L32 32 L40 40" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h2>Drop your file here</h2>
+          <p><strong>.STL</strong> / <strong>.OBJ</strong> — estimated weight &nbsp;|&nbsp; <strong>.gcode</strong> — exact weight from Bambu</p>
+          <label class="btn-primary">
+            Browse Files
+            <input type="file" id="file-input" accept=".stl,.obj,.gcode" hidden>
+          </label>
+          <p class="upload-note">For exact pricing: slice in Bambu Studio → File → Export → Export Plate Sliced File (.gcode) → upload here</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CALCULATOR SCREEN ===== -->
+    <section id="calc-screen" class="hidden">
+      <div class="calc-grid">
+
+        <div class="calc-left">
+          <div class="card">
+            <div class="card-header">
+              <h3>Model Preview</h3>
+              <button id="btn-reset" class="btn-ghost">↩ Upload New</button>
+            </div>
+            <div id="viewer" class="viewer">
+              <div class="viewer-loading" id="viewer-loading">Parsing model…</div>
+            </div>
+
+            <!-- Orientation Controls -->
+            <div id="orient-controls" class="orient-controls hidden">
+              <div class="orient-header">
+                <span class="orient-label">Orientation</span>
+                <div class="orient-header-btns">
+                  <button id="btn-lay-flat" class="btn-lay-flat" title="Auto-detect best flat face and orient to bed">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 17l3-3 3 3"/><rect x="6" y="4" width="12" height="10" rx="1"/></svg>
+                    Auto Flat
+                  </button>
+                  <button id="btn-pick-face" class="btn-pick-face" title="Click a face on the model to lay it flat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+                    Pick Face
+                  </button>
+                </div>
+              </div>
+              <div class="orient-axes">
+                <div class="orient-axis">
+                  <span class="axis-label axis-x">X</span>
+                  <button class="orient-btn" data-axis="x" data-dir="-1" title="Rotate -90° around X">-90°</button>
+                  <button class="orient-btn" data-axis="x" data-dir="1" title="Rotate +90° around X">+90°</button>
+                </div>
+                <div class="orient-axis">
+                  <span class="axis-label axis-y">Y</span>
+                  <button class="orient-btn" data-axis="y" data-dir="-1" title="Rotate -90° around Y">-90°</button>
+                  <button class="orient-btn" data-axis="y" data-dir="1" title="Rotate +90° around Y">+90°</button>
+                </div>
+                <div class="orient-axis">
+                  <span class="axis-label axis-z">Z</span>
+                  <button class="orient-btn" data-axis="z" data-dir="-1" title="Rotate -90° around Z">-90°</button>
+                  <button class="orient-btn" data-axis="z" data-dir="1" title="Rotate +90° around Z">+90°</button>
+                </div>
+                <button id="btn-reset-orient" class="orient-btn orient-reset" title="Reset to original orientation">↺ Reset</button>
+              </div>
+              <div id="orient-info" class="orient-info"></div>
+            </div>
+
+            <div id="model-stats" class="model-stats"></div>
+          </div>
+        </div>
+
+        <div class="calc-right">
+
+          <!-- Warning Banner -->
+          <div class="estimate-warning">
+            <div class="warning-icon">⚠</div>
+            <div class="warning-text">
+              <strong>Estimated price only</strong> — This calculator gives a rough estimate based on geometry analysis. Actual price may vary by ±15% depending on model complexity, supports, and print settings.
+              <a href="https://wa.me/919449214905?text=Hi%2C%20I%20used%20the%20calculator%20and%20need%20an%20exact%20quote" target="_blank" rel="noopener noreferrer" class="warning-link">Contact us on WhatsApp for exact pricing →</a>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Print Settings</h3>
+
+            <div class="option-section">
+              <label class="option-label">Printer</label>
+              <div id="printer-options" class="toggle-row"></div>
+            </div>
+
+            <div class="option-section">
+              <label class="option-label">Material</label>
+              <div id="material-options" class="material-grid"></div>
+            </div>
+
+            <div class="option-section">
+              <label class="option-label">Print Quality</label>
+              <div id="quality-options" class="quality-grid"></div>
+            </div>
+
+            <div class="option-section">
+              <label class="option-label">Support Structures</label>
+              <div id="support-options" class="toggle-row"></div>
+            </div>
+
+            <div class="option-section">
+              <label class="option-label">
+                Infill Density
+                <span id="infill-val" class="accent-val">20%</span>
+              </label>
+              <input type="range" id="infill" class="slider" min="5" max="100" value="20" step="5">
+              <div class="slider-labels">
+                <span>5% Hollow</span>
+                <span>50% Medium</span>
+                <span>100% Solid</span>
+              </div>
+              <div id="infill-types" class="itype-row"></div>
+              <canvas id="print-preview" class="print-preview"></canvas>
+            </div>
+
+            <div class="option-section">
+              <label class="option-label">
+                Wall Count (Perimeters)
+                <span id="walls-val" class="accent-val">2</span>
+              </label>
+              <input type="range" id="walls" class="slider" min="1" max="8" value="2" step="1">
+              <div class="slider-labels">
+                <span>1 Thin shell</span>
+                <span>3 Standard</span>
+                <span>8 Maximum</span>
+              </div>
+              <div id="walls-hint" class="walls-hint"></div>
+            </div>
+
+            <div class="option-section">
+              <label class="option-label">Quantity</label>
+              <div class="qty-control">
+                <button id="qty-down" class="qty-btn">−</button>
+                <span id="qty-val">1</span>
+                <button id="qty-up" class="qty-btn">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card price-card">
+            <h3>Price Breakdown</h3>
+            <div id="price-breakdown" class="breakdown-list">
+              <p class="muted-text">Upload a model to see pricing.</p>
+            </div>
+            <div class="total-row">
+              <span>Total Estimate</span>
+              <span id="total-price" class="total-amount">₹&nbsp;—</span>
+            </div>
+            <a id="btn-quote" class="btn-primary btn-full btn-wa" href="#" target="_blank" rel="noopener noreferrer">
+              Get Quote on WhatsApp →
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="/calculator/app.js"></script>
+
+</body>
+</html>
