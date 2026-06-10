@@ -1,21 +1,103 @@
-import * as React from 'react';
+import { useState, useEffect } from "react"
 
-const ToastContext = React.createContext(null);
+const TOAST_LIMIT = 1
 
-export function Toast({ title, description, onClose }) {
-  return (
-    <div className="fixed bottom-6 right-6 z-50 bg-white text-black rounded-lg shadow-2xl p-5 max-w-sm border border-gray-200">
-      {title && <p className="font-bold text-sm mb-1">{title}</p>}
-      {description && <p className="text-sm text-gray-600">{description}</p>}
-    </div>
-  );
+let count = 0
+function generateId() {
+	count = (count + 1) % Number.MAX_VALUE
+	return count.toString()
 }
 
-export function ToastProvider({ children }) {
-  return <>{children}</>;
+const toastStore = {
+	state: {
+		toasts: [],
+	},
+	listeners: [],
+
+	getState: () => toastStore.state,
+
+	setState: (nextState) => {
+		if (typeof nextState === 'function') {
+			toastStore.state = nextState(toastStore.state)
+		} else {
+			toastStore.state = { ...toastStore.state, ...nextState }
+		}
+
+		toastStore.listeners.forEach(listener => listener(toastStore.state))
+	},
+
+	subscribe: (listener) => {
+		toastStore.listeners.push(listener)
+		return () => {
+			toastStore.listeners = toastStore.listeners.filter(l => l !== listener)
+		}
+	}
 }
-export function ToastViewport() { return null; }
-export function ToastTitle({ children }) { return <p className="font-bold text-sm">{children}</p>; }
-export function ToastDescription({ children }) { return <p className="text-sm">{children}</p>; }
-export function ToastClose() { return null; }
-export function ToastAction({ children }) { return <button>{children}</button>; }
+
+export const toast = ({ ...props }) => {
+	const id = generateId()
+
+	const update = (props) =>
+		toastStore.setState((state) => ({
+			...state,
+			toasts: state.toasts.map((t) =>
+				t.id === id ? { ...t, ...props } : t
+			),
+		}))
+
+	const dismiss = () => toastStore.setState((state) => ({
+		...state,
+		toasts: state.toasts.filter((t) => t.id !== id),
+	}))
+
+	toastStore.setState((state) => ({
+		...state,
+		toasts: [
+			{ ...props, id, dismiss },
+			...state.toasts,
+		].slice(0, TOAST_LIMIT),
+	}))
+
+	return {
+		id,
+		dismiss,
+		update,
+	}
+}
+
+export function useToast() {
+	const [state, setState] = useState(toastStore.getState())
+
+	useEffect(() => {
+		const unsubscribe = toastStore.subscribe((state) => {
+			setState(state)
+		})
+
+		return unsubscribe
+	}, [])
+
+	useEffect(() => {
+		const timeouts = []
+
+		state.toasts.forEach((toast) => {
+			if (toast.duration === Infinity) {
+				return
+			}
+
+			const timeout = setTimeout(() => {
+				toast.dismiss()
+			}, toast.duration || 5000)
+
+			timeouts.push(timeout)
+		})
+
+		return () => {
+			timeouts.forEach((timeout) => clearTimeout(timeout))
+		}
+	}, [state.toasts])
+
+	return {
+		toast,
+		toasts: state.toasts,
+	}
+}

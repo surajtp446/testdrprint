@@ -1,68 +1,60 @@
 import { APPS_SCRIPT_URL } from './api.js';
 
-// ── File validation constants ─────────────────────────────────────────────────
-const MAX_FILE_SIZE_MB    = 50;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-const ALLOWED_EXTENSIONS  = new Set([
-  'stl','step','stp','obj','3mf','iges','igs',
-  'pdf','zip','png','jpg','jpeg','webp',
-]);
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Max 1 submission per 60 seconds per browser session.
+let lastSubmitTime = 0;
+const RATE_LIMIT_MS = 60_000;
 
-function validateFile(file) {
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-  if (!ALLOWED_EXTENSIONS.has(ext))
-    throw new Error(`"${file.name}" has a disallowed file type (.${ext}).`);
-  if (file.size > MAX_FILE_SIZE_BYTES)
-    throw new Error(`"${file.name}" exceeds the ${MAX_FILE_SIZE_MB} MB limit.`);
-  if (/[/\\<>:"|?*]/.test(file.name))
-    throw new Error(`"${file.name}" contains invalid characters.`);
-  return true;
+// ── Input sanitisation ────────────────────────────────────────────────────────
+function sanitise(value) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/[<>'"]/g, '')  // strip HTML/script characters
+    .trim()
+    .slice(0, 2000);          // hard cap per field
 }
 
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = () => reject(new Error(`Failed to read "${file.name}"`));
-    reader.readAsDataURL(file);
-  });
+function sanitisePayload(obj) {
+  const clean = {};
+  for (const [k, v] of Object.entries(obj)) {
+    clean[sanitise(String(k))] = typeof v === 'string' ? sanitise(v) : v;
+  }
+  return clean;
 }
 
 /**
- * Validates files, encodes them, then fires the upload — fire and forget.
+ * Submits form data to Apps Script via GET — fire and forget.
  *
- * Validation and base64 encoding are awaited (they're local CPU work and can
- * throw meaningful errors). The fetch itself is fired without awaiting because:
- *   - mode:'no-cors' makes the response permanently unreadable
- *   - Apps Script receives the payload even if we don't wait for it to finish
- *   - Awaiting caused 3–10 second freezes and false error messages
+ * We use mode:'no-cors' which means the browser can NEVER read the response
+ * regardless of how long we await. Awaiting just freezes the UI and turns
+ * transient network blips into false error messages even though Apps Script
+ * already received and processed the request.
  *
- * @throws {Error} if any file fails validation — shown to user before upload fires
+ * Solution: fire the fetch without awaiting it, stamp the rate limit, return
+ * success immediately. Validation errors (rate limit, bad input) still throw
+ * before the fetch is ever fired.
  */
-export async function uploadFilesToDrive(files, orderDetails) {
-  if (!files || files.length === 0) return [];
+export function submitToAppsScript(data, fileLinks = []) {
+  // ── Rate limit check ──────────────────────────────────────────────────────
+  const now = Date.now();
+  if (now - lastSubmitTime < RATE_LIMIT_MS) {
+    const waitSec = Math.ceil((RATE_LIMIT_MS - (now - lastSubmitTime)) / 1000);
+    throw new Error(`Please wait ${waitSec}s before submitting again.`);
+  }
 
-  // Validate before encoding anything — throws immediately on bad files
-  for (const file of files) validateFile(file);
+  // ── Sanitise ──────────────────────────────────────────────────────────────
+  const cleanData = sanitisePayload(data);
+  const fileStr = fileLinks.length
+    ? fileLinks.map(f => sanitise(f.name) + (f.url ? ' → ' + f.url : '')).join(' | ')
+    : 'None';
 
-  // Encode locally (CPU work — must await)
-  const encodedFiles = await Promise.all(files.map(async f => ({
-    filename: f.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
-    mimetype: f.type || 'application/octet-stream',
-    data:     await readFileAsBase64(f),
-  })));
+  const payload = { ...cleanData, files: fileStr };
+  const url = APPS_SCRIPT_URL + '?payload=' + encodeURIComponent(JSON.stringify(payload));
 
-  // Fire and forget — don't await an unreadable opaque response
-  fetch(APPS_SCRIPT_URL, {
-    method:  'POST',
-    mode:    'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body:    JSON.stringify({
-      type:  'file_upload',
-      files: encodedFiles,
-      order: orderDetails || {},
-    }),
-  }).catch(() => {});
+  // ── Fire and forget ───────────────────────────────────────────────────────
+  // Stamp the rate limit BEFORE firing so rapid double-submits are blocked.
+  lastSubmitTime = Date.now();
+  fetch(url, { mode: 'no-cors' }).catch(() => {});  // swallow — opaque response, unreadable anyway
 
-  return files.map(f => ({ name: f.name, url: 'Sent' }));
+  return { ok: true };
 }

@@ -1,107 +1,125 @@
-import React, { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
 
-const FRAMES = [
-  {
-    kicker: 'Rapid Prototyping · Bengaluru',
-    title: 'CAD to part in 24–72 hours.',
-    body: 'Upload an STL, get a quote the same day, hold the part in two to three. Functional prototypes for design validation, fit checks and investor demos — printed in Basavanagudi, Bengaluru.',
-  },
-  {
-    kicker: 'Functional & Engineering Parts',
-    title: 'Built to take real load.',
-    body: 'Brackets, enclosures, jigs and end-use components at ±0.1 mm accuracy. PETG, ASA, TPU and Carbon-Fibre Nylon — material matched to the job, across Karnataka and pan-India.',
-  },
-  {
-    kicker: 'Drone · UAV · Aerospace',
-    title: 'Parts that actually fly.',
-    body: 'Motor mounts, airframes, payload bays and aero fairings — lightweight LW-PLA and PA-CF, engineered by a team that built India’s fastest FPV drone and a SAE AeroTHON AIR-2 platform.',
-  },
-  {
-    kicker: 'For Startups & Makers',
-    title: 'Your hardware partner.',
-    body: 'From a single concept print to small-batch production of 500+. No tooling cost, no MOQ. The rapid-prototyping backbone for Bengaluru’s hardware startups.',
-  },
-];
+/**
+ * FilamentThread — a sitewide scroll companion.
+ *
+ * A molten filament strand is "extruded" down the right edge of the
+ * viewport as the page scrolls: above the print head the strand has
+ * cooled to solid white; at the head it glows molten orange with tiny
+ * heat shimmer particles; below it a faint dashed guide shows what is
+ * left to print. The same strand lives on every page, so the whole
+ * site reads as one continuous print job.
+ *
+ * Desktop only (hidden < lg), pointer-events: none, ~40 px wide.
+ */
+export default function FilamentThread() {
+  const canvasRef = useRef(null);
 
-const N = FRAMES.length;
-const SEG = 1 / N;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.innerWidth < 1024) return;
 
-// One frame = one component instance, so hooks are top-level & stable.
-function Frame({ index, progress, data }) {
-  const start = SEG * index;
-  const mid   = SEG * (index + 0.5);
-  const end   = SEG * (index + 1);
-  const opacity = useTransform(
-    progress,
-    [start, start + SEG * 0.18, end - SEG * 0.18, end],
-    [0, 1, 1, 0]
-  );
-  const y = useTransform(progress, [start, mid, end], [40, 0, -40]);
+    const ctx = canvas.getContext('2d');
+    let raf, W = 40, H = 0;
+    let target = 0, smooth = 0;
+    const shimmer = [];
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      H = window.innerHeight;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const onScroll = () => {
+      const doc = document.documentElement;
+      const max = doc.scrollHeight - window.innerHeight;
+      target = max > 0 ? window.scrollY / max : 0;
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const X = W * 0.5;
+    const PAD = 90; // keep clear of header / footer edges
+
+    const frame = (t) => {
+      raf = requestAnimationFrame(frame);
+      smooth += (target - smooth) * 0.09;
+      const headY = PAD + smooth * (H - PAD * 2);
+      const time = t / 1000;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // remaining guide (below head) — dashed, barely-there
+      ctx.setLineDash([2, 6]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X, headY + 10); ctx.lineTo(X, H - PAD); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // extruded strand (above head) — cooled, with a slight waver
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let y = PAD; y <= headY - 6; y += 6) {
+        const u = (y - PAD) / Math.max(1, headY - PAD); // 0 top → 1 near head
+        const wav = Math.sin(y * 0.05 + time * 0.6) * 1.2 * u;
+        y === PAD ? ctx.moveTo(X + wav, y) : ctx.lineTo(X + wav, y);
+      }
+      const grad = ctx.createLinearGradient(0, PAD, 0, headY);
+      grad.addColorStop(0, 'rgba(255,255,255,0.10)');
+      grad.addColorStop(0.75, 'rgba(230,225,220,0.30)');
+      grad.addColorStop(1, 'rgba(255,150,60,0.85)');
+      ctx.strokeStyle = grad;
+      ctx.stroke();
+
+      // molten head
+      ctx.beginPath();
+      ctx.arc(X, headY, 2.6, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,170,90,1)';
+      ctx.shadowColor = 'rgba(255,140,40,0.9)';
+      ctx.shadowBlur = 14;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // heat shimmer particles
+      if (Math.random() < 0.25) {
+        shimmer.push({ x: X + (Math.random() - 0.5) * 4, y: headY, vy: -0.4 - Math.random() * 0.5, life: 1 });
+      }
+      for (let i = shimmer.length - 1; i >= 0; i--) {
+        const s = shimmer[i];
+        s.y += s.vy; s.life -= 0.03;
+        if (s.life <= 0) { shimmer.splice(i, 1); continue; }
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 0.9 * s.life, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,180,110,${s.life * 0.5})`;
+        ctx.fill();
+      }
+
+      // percentage tick
+      ctx.font = '400 8px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      ctx.fillText(`${Math.round(smooth * 100)}`, X, headY + 22);
+    };
+    raf = requestAnimationFrame(frame);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
 
   return (
-    <motion.div style={{ opacity, y }}
-      className="absolute inset-x-8 md:inset-x-20 top-1/2 -translate-y-1/2">
-      <p className="text-[11px] tracking-[0.5em] text-white/40 uppercase mb-5">{data.kicker}</p>
-      <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight leading-[0.98] mb-6">
-        {data.title}
-      </h2>
-      <p className="text-base md:text-lg text-white/55 font-light leading-relaxed max-w-xl">
-        {data.body}
-      </p>
-      <span className="mt-6 inline-block text-[10px] tracking-[0.4em] text-white/25 uppercase">
-        {String(index + 1).padStart(2, '0')} / {String(N).padStart(2, '0')}
-      </span>
-    </motion.div>
-  );
-}
-
-function RailTick({ index, progress }) {
-  const opacity = useTransform(
-    progress,
-    [SEG * index, SEG * (index + 0.5), SEG * (index + 1)],
-    [0.2, 1, 0.2]
-  );
-  return <motion.div style={{ opacity }} className="w-px h-10 bg-white origin-top" />;
-}
-
-export default function ScrollScene() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start start', 'end end'],
-  });
-
-  return (
-    <section ref={ref} className="relative bg-black" style={{ height: `${N * 100}vh` }}>
-      <div className="sticky top-0 h-screen overflow-hidden flex items-center">
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.5) 1px,transparent 1px)',
-            backgroundSize: '48px 48px',
-          }} />
-
-        <div className="absolute left-6 md:left-14 top-1/2 -translate-y-1/2 hidden md:flex flex-col gap-3 z-20">
-          {FRAMES.map((_, i) => (
-            <RailTick key={i} index={i} progress={scrollYProgress} />
-          ))}
-        </div>
-
-        <div className="relative w-full max-w-3xl mx-auto px-8 md:px-20 h-screen">
-          {FRAMES.map((f, i) => (
-            <Frame key={i} index={i} progress={scrollYProgress} data={f} />
-          ))}
-        </div>
-
-        <div className="absolute bottom-8 right-6 md:right-14 z-20">
-          <Link to="/calculator"
-            className="inline-block text-[10px] font-black uppercase tracking-[0.25em] bg-white text-black px-7 py-3.5 hover:bg-white/85 transition-all duration-300">
-            Get a Quote
-          </Link>
-        </div>
-      </div>
-    </section>
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      className="hidden lg:block fixed top-0 right-1 h-screen w-10 z-40 pointer-events-none"
+    />
   );
 }

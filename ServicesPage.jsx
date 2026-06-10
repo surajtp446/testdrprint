@@ -1,139 +1,96 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+import React, { useEffect } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import { Toaster } from '@/components/ui/toaster';
+import ScrollToTop from '@/components/ScrollToTop.jsx';
+import ScrollProgress from '@/components/ScrollProgress.jsx';
+import CursorGlow from '@/components/CursorGlow.jsx';
+import Header from '@/components/Header.jsx';
+import Footer from '@/components/Footer.jsx';
+import FloatingWhatsApp from '@/components/FloatingWhatsApp.jsx';
+import FilamentThread from '@/components/FilamentThread.jsx';
+import RouteShutter from '@/components/RouteShutter.jsx';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+import HomePage      from '@/pages/HomePage.jsx';
+import ProjectsPage  from '@/pages/ProjectsPage.jsx';
+import ShopPage      from '@/pages/ShopPage.jsx';
+import AboutPage     from '@/pages/AboutPage.jsx';
+import ContactPage   from '@/pages/ContactPage.jsx';
+import PaymentPage   from '@/pages/PaymentPage.jsx';
+import ServicesPage  from '@/pages/ServicesPage.jsx';
+import DesignPage    from '@/pages/DesignPage.jsx';
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-html { scroll-behavior: auto; }
-
-body {
-  background-color: #000000;
-  color: #FFFFFF;
-  font-family: 'Poppins', sans-serif;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  cursor: default;
+function NotFound() {
+  return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
+      <div className="text-center max-w-md">
+        <p className="text-sm tracking-[0.5em] text-white/65 uppercase mb-4">404</p>
+        <h1 className="text-4xl font-black tracking-tight mb-4">Page Not Found</h1>
+        <p className="text-white/70 text-sm font-light mb-8">The page you're looking for doesn't exist or has been moved.</p>
+        <Link to="/" className="inline-block px-8 py-3 bg-white text-black text-[13px] font-black uppercase tracking-[0.18em] hover:bg-white/85 transition-all">
+          Back to Home
+        </Link>
+      </div>
+    </div>
+  );
 }
 
-*, *::before, *::after { cursor: inherit; }
-input, textarea, select, [contenteditable="true"] { cursor: text; }
-a, button, label, [role="button"], [onclick] { cursor: pointer; }
-button, a, nav, header, footer, h1, h2, h3, h4, h5, h6,
-.select-none, [class*="tracking-"] {
-  -webkit-user-select: none;
-  user-select: none;
+function LenisScroll() {
+  useEffect(() => {
+    let lenis, raf;
+    async function init() {
+      try {
+        const { default: Lenis } = await import('lenis');
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        lenis = new Lenis({
+          duration: 1.45,
+          easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+          smoothWheel: true,
+          wheelMultiplier: 0.95,
+          touchMultiplier: 1.5,
+        });
+        window.__lenis = lenis;
+        const animate = (time) => { lenis.raf(time); raf = requestAnimationFrame(animate); };
+        raf = requestAnimationFrame(animate);
+      } catch(e) {}
+    }
+    init();
+    return () => { cancelAnimationFrame(raf); lenis?.destroy(); };
+  }, []);
+  return null;
 }
 
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #000000; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-
-.reviews-scroll::-webkit-scrollbar { display: none; }
-
-/* Lenis */
-html.lenis { height: auto; }
-.lenis.lenis-smooth { scroll-behavior: auto !important; }
-.lenis.lenis-stopped { overflow: hidden; }
-.lenis.lenis-scrolling iframe { pointer-events: none; }
-
-/* Custom cursor — hidden on hover-capable devices so CursorGlow takes over */
-@media (hover: hover) and (pointer: fine) {
-  * { cursor: none !important; }
-  input, textarea, select { cursor: none !important; }
+function App() {
+  const location = useLocation();
+  return (
+    <>
+      <LenisScroll />
+      <ScrollToTop />
+      <ScrollProgress />
+      <RouteShutter />
+      <FilamentThread />
+      <CursorGlow />
+      <Header />
+      <main>
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route path="/"         element={<HomePage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/shop"     element={<ShopPage />} />
+            <Route path="/about"    element={<AboutPage />} />
+            <Route path="/contact"  element={<ContactPage />} />
+            <Route path="/payment"  element={<PaymentPage />} />
+            <Route path="/design"   element={<DesignPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AnimatePresence>
+      </main>
+      <Footer />
+      <FloatingWhatsApp />
+      <Toaster />
+    </>
+  );
 }
 
-/* Smooth default transitions for interactive elements */
-a, button {
-  transition-property: color, background-color, border-color, opacity, transform;
-  transition-duration: 200ms;
-  transition-timing-function: ease;
-}
-
-/* Text selection color */
-::selection {
-  background: rgba(255,255,255,0.15);
-  color: #fff;
-}
-
-/* ── Glassmorphism utility class ─────────────────────────────────────────────── */
-.glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
-}
-.glass-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.10);
-}
-
-/* ── Page slide-up entrance (used by motion.div wrappers on each page) ────────── */
-.page-enter {
-  opacity: 0;
-  transform: translateY(18px);
-}
-.page-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-              transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* ── Stagger children fade-up via CSS (for non-Framer lists) ─────────────────── */
-.stagger-children > * {
-  opacity: 0;
-  transform: translateY(16px);
-  animation: fadeUpIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.12s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.19s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.26s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.33s; }
-.stagger-children > *:nth-child(6) { animation-delay: 0.40s; }
-
-@keyframes fadeUpIn {
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Accessibility & motion ──────────────────────────────────────────────── */
-:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.55);
-  outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* ── Nav link underline grow ─────────────────────────────────────────────── */
-.nav-underline {
-  position: relative;
-}
-.nav-underline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -4px;
-  height: 1px;
-  width: 100%;
-  background: linear-gradient(90deg, rgba(255,150,60,0.9), rgba(255,255,255,0.7));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.nav-underline:hover::after,
-.nav-underline.active::after {
-  transform: scaleX(1);
-}
+export default App;

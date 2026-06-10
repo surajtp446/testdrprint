@@ -1,125 +1,148 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
+import { motion, useInView } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { staggerContainer, staggerItem } from '@/data/animations.js';
 
-/**
- * FilamentThread — a sitewide scroll companion.
- *
- * A molten filament strand is "extruded" down the right edge of the
- * viewport as the page scrolls: above the print head the strand has
- * cooled to solid white; at the head it glows molten orange with tiny
- * heat shimmer particles; below it a faint dashed guide shows what is
- * left to print. The same strand lives on every page, so the whole
- * site reads as one continuous print job.
- *
- * Desktop only (hidden < lg), pointer-events: none, ~40 px wide.
- */
-export default function FilamentThread() {
-  const canvasRef = useRef(null);
+const steps = [
+  {
+    number: '01',
+    title: 'Send Your Requirement',
+    description: 'Share your design file (STL, STEP, or a sketch) along with your material preference, quantity, and deadline. Not sure what you need? We will advise.',
+    detail: 'STL · STEP · OBJ · Sketch — we accept any format',
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <rect x="4" y="6" width="18" height="20" rx="2" stroke="white" strokeOpacity="0.5" strokeWidth="1.2"/>
+        <path d="M8 11h10M8 15h10M8 19h6" stroke="white" strokeOpacity="0.4" strokeWidth="1" strokeLinecap="round"/>
+        <circle cx="25" cy="23" r="5" fill="none" stroke="white" strokeOpacity="0.5" strokeWidth="1.2"/>
+        <path d="M23 23l1.5 1.5L27 21" stroke="white" strokeOpacity="0.5" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    number: '02',
+    title: 'We Optimise & Confirm',
+    description: 'Our team reviews your file for printability, suggests the best material and layer settings, and sends you a quote with timeline. No surprises.',
+    detail: 'Quote within 24 hours on all standard requests',
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="10" stroke="white" strokeOpacity="0.5" strokeWidth="1.2"/>
+        <path d="M12 16.5l2.5 2.5 5.5-5.5" stroke="white" strokeOpacity="0.5" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16 6v2M16 24v2M6 16h2M24 16h2" stroke="white" strokeOpacity="0.3" strokeWidth="1" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    number: '03',
+    title: 'Printed, Checked & Shipped',
+    description: 'Once confirmed, we print on our Bambu Lab systems, run a quality check for dimensional accuracy, and dispatch directly to you — or you can collect.',
+    detail: 'Typical turnaround: 2–5 days depending on complexity',
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <path d="M4 20l4-10h16l4 10" stroke="white" strokeOpacity="0.5" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+        <rect x="4" y="20" width="24" height="6" rx="1.5" stroke="white" strokeOpacity="0.5" strokeWidth="1.2"/>
+        <circle cx="10" cy="28" r="2" stroke="white" strokeOpacity="0.5" strokeWidth="1.2"/>
+        <circle cx="22" cy="28" r="2" stroke="white" strokeOpacity="0.5" strokeWidth="1.2"/>
+        <path d="M14 10v6M18 10v6" stroke="white" strokeOpacity="0.3" strokeWidth="1" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+];
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (window.innerWidth < 1024) return;
-
-    const ctx = canvas.getContext('2d');
-    let raf, W = 40, H = 0;
-    let target = 0, smooth = 0;
-    const shimmer = [];
-
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      H = window.innerHeight;
-      canvas.width = W * dpr; canvas.height = H * dpr;
-      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    const onScroll = () => {
-      const doc = document.documentElement;
-      const max = doc.scrollHeight - window.innerHeight;
-      target = max > 0 ? window.scrollY / max : 0;
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-
-    const X = W * 0.5;
-    const PAD = 90; // keep clear of header / footer edges
-
-    const frame = (t) => {
-      raf = requestAnimationFrame(frame);
-      smooth += (target - smooth) * 0.09;
-      const headY = PAD + smooth * (H - PAD * 2);
-      const time = t / 1000;
-
-      ctx.clearRect(0, 0, W, H);
-
-      // remaining guide (below head) — dashed, barely-there
-      ctx.setLineDash([2, 6]);
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(X, headY + 10); ctx.lineTo(X, H - PAD); ctx.stroke();
-      ctx.setLineDash([]);
-
-      // extruded strand (above head) — cooled, with a slight waver
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      for (let y = PAD; y <= headY - 6; y += 6) {
-        const u = (y - PAD) / Math.max(1, headY - PAD); // 0 top → 1 near head
-        const wav = Math.sin(y * 0.05 + time * 0.6) * 1.2 * u;
-        y === PAD ? ctx.moveTo(X + wav, y) : ctx.lineTo(X + wav, y);
-      }
-      const grad = ctx.createLinearGradient(0, PAD, 0, headY);
-      grad.addColorStop(0, 'rgba(255,255,255,0.10)');
-      grad.addColorStop(0.75, 'rgba(230,225,220,0.30)');
-      grad.addColorStop(1, 'rgba(255,150,60,0.85)');
-      ctx.strokeStyle = grad;
-      ctx.stroke();
-
-      // molten head
-      ctx.beginPath();
-      ctx.arc(X, headY, 2.6, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,170,90,1)';
-      ctx.shadowColor = 'rgba(255,140,40,0.9)';
-      ctx.shadowBlur = 14;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // heat shimmer particles
-      if (Math.random() < 0.25) {
-        shimmer.push({ x: X + (Math.random() - 0.5) * 4, y: headY, vy: -0.4 - Math.random() * 0.5, life: 1 });
-      }
-      for (let i = shimmer.length - 1; i >= 0; i--) {
-        const s = shimmer[i];
-        s.y += s.vy; s.life -= 0.03;
-        if (s.life <= 0) { shimmer.splice(i, 1); continue; }
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, 0.9 * s.life, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,180,110,${s.life * 0.5})`;
-        ctx.fill();
-      }
-
-      // percentage tick
-      ctx.font = '400 8px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(255,255,255,0.22)';
-      ctx.fillText(`${Math.round(smooth * 100)}`, X, headY + 22);
-    };
-    raf = requestAnimationFrame(frame);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('scroll', onScroll);
-    };
-  }, []);
+function StepCard({ step, index }) {
+  const ref    = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="hidden lg:block fixed top-0 right-1 h-screen w-10 z-40 pointer-events-none"
-    />
+    <motion.div
+      ref={ref}
+      variants={staggerItem}
+      className={`relative p-5 md:p-10 ${
+        index < steps.length - 1 ? 'border-b md:border-b-0 md:border-r border-white/15' : ''
+      } group hover:bg-white/[0.025] transition-colors duration-500`}
+    >
+      {/* Large watermark number — animates in */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.7 }}
+        animate={inView ? { opacity: 1, scale: 1 } : {}}
+        transition={{ duration: 0.8, delay: index * 0.15, ease: [0.22, 1, 0.36, 1] }}
+        className="absolute top-6 right-8 text-[72px] font-black text-white/[0.04] leading-none select-none pointer-events-none"
+      >
+        {step.number}
+      </motion.div>
+
+      {/* Icon with glow on hover */}
+      <div className="mb-6 opacity-55 group-hover:opacity-90 transition-opacity duration-300">
+        {step.icon}
+      </div>
+
+      <p className="text-[13px] tracking-[0.4em] text-white/55 uppercase mb-3">{`Step ${step.number}`}</p>
+
+      <h3 className="text-xl font-black text-white mb-4 leading-tight">{step.title}</h3>
+
+      <p className="text-white/65 text-sm font-light leading-relaxed mb-6">{step.description}</p>
+
+      <div className="border-t border-white/10 pt-4">
+        <p className="text-[12px] text-white/50 font-light leading-snug">{step.detail}</p>
+      </div>
+
+      {/* Animated connector arrow — desktop */}
+      {index < steps.length - 1 && (
+        <motion.div
+          initial={{ opacity: 0, x: -6 }}
+          animate={inView ? { opacity: 1, x: 0 } : {}}
+          transition={{ duration: 0.5, delay: index * 0.2 + 0.4 }}
+          className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-white/40"
+        >
+          <svg width="6" height="12" viewBox="0 0 6 12" fill="none">
+            <path d="M1 1l4 5-4 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </motion.div>
+      )}
+
+      {/* Bottom border highlight — slides in on hover */}
+      <motion.div
+        className="absolute bottom-0 left-0 h-[2px] bg-white/30 pointer-events-none"
+        initial={{ width: '0%' }}
+        whileHover={{ width: '100%' }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      />
+    </motion.div>
+  );
+}
+
+export default function HowItWorksSection() {
+  return (
+    <section className="py-24 px-6 bg-[#080808] border-t border-white/12">
+      <div className="container mx-auto max-w-6xl">
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.6 }}
+          className="mb-16 flex flex-col md:flex-row md:items-end md:justify-between gap-6"
+        >
+          <div>
+            <p className="text-white/60 text-sm uppercase tracking-[0.4em] mb-4">Process</p>
+            <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">How It Works</h2>
+          </div>
+          <Link to="/contact"
+            className="self-start md:self-auto inline-block px-7 py-3 border border-white/20 text-white text-[12px] font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all duration-300 whitespace-nowrap">
+            Start a Project
+          </Link>
+        </motion.div>
+
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-60px' }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-white/15"
+        >
+          {steps.map((step, i) => (
+            <StepCard key={i} step={step} index={i} />
+          ))}
+        </motion.div>
+
+      </div>
+    </section>
   );
 }

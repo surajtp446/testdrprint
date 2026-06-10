@@ -2,384 +2,311 @@ import { useSEO } from '@/hooks/useSEO.js';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { fadeUp, staggerContainer, staggerItem } from '@/data/animations.js';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { fadeUp } from '@/data/animations.js';
+
+function ImageCarousel({ images, alt }) {
+  const [current, setCurrent] = useState(0);
+  if (images.length === 1) return (
+    <div className="w-full h-52 overflow-hidden">
+      <img src={images[0]} alt={alt} loading="lazy" className="w-full h-full object-cover" />
+    </div>
+  );
+  return (
+    <div className="relative w-full h-52 overflow-hidden group">
+      <img key={current} src={images[current]} alt={`${alt} ${current + 1}`} loading="lazy"
+        className="w-full h-full object-cover" />
+      <button aria-label="Previous image" onClick={e => { e.stopPropagation(); setCurrent((current - 1 + images.length) % images.length); }}
+        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <ChevronLeft size={13} />
+      </button>
+      <button aria-label="Next image" onClick={e => { e.stopPropagation(); setCurrent((current + 1) % images.length); }}
+        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <ChevronRight size={13} />
+      </button>
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+        {images.map((_, i) => (
+          <button key={i} onClick={e => { e.stopPropagation(); setCurrent(i); }}
+            className={`w-1 h-1 rounded-full transition-all ${i === current ? 'bg-white scale-125' : 'bg-white/35'}`} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Full carousel for inside the modal — always shows arrows, proper height
+function ModalCarousel({ images, alt }) {
+  const [current, setCurrent] = useState(0);
+  return (
+    <div className="relative w-full bg-[#111]" style={{minHeight: '320px'}}>
+      <img
+        key={current}
+        src={images[current]}
+        alt={`${alt} ${current + 1}`}
+        className="w-full object-contain"
+        style={{maxHeight: '420px', minHeight: '240px'}}
+      />
+      {images.length > 1 && (
+        <>
+          <button
+            aria-label="Previous image"
+            onClick={e => { e.stopPropagation(); setCurrent((current - 1 + images.length) % images.length); }}
+            className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/80 hover:bg-black text-white rounded-full p-2 transition-all">
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            aria-label="Next image"
+            onClick={e => { e.stopPropagation(); setCurrent((current + 1) % images.length); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/80 hover:bg-black text-white rounded-full p-2 transition-all">
+            <ChevronRight size={16} />
+          </button>
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 items-center">
+            {images.map((_, i) => (
+              <button key={i}
+                aria-label={`Go to image ${i + 1}`}
+                onClick={e => { e.stopPropagation(); setCurrent(i); }}
+                className={`rounded-full transition-all ${i === current ? 'w-4 h-2 bg-white' : 'w-2 h-2 bg-white/35 hover:bg-white/60'}`} />
+            ))}
+          </div>
+          <div className="absolute top-3 right-3 bg-black/60 text-white/78 text-[12px] font-mono px-2 py-0.5">
+            {current + 1} / {images.length}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Detail modal shown when card is clicked
+function ProjectModal({ project, onClose }) {
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/88 backdrop-blur-sm" onClick={onClose} />
+      <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }} transition={{ type: 'tween', duration: 0.24 }}
+        data-lenis-prevent
+        className="relative w-full max-w-2xl max-h-[88vh] bg-[#0a0a0a] border border-white/10 overflow-y-auto">
+
+        {/* Image carousel — full size, not cropped */}
+        <ModalCarousel images={project.images} alt={project.title} />
+
+        {/* Content */}
+        <div className="p-8">
+          <button onClick={onClose} className="absolute top-4 right-4 text-white/65 hover:text-white transition-colors bg-black/60 rounded-full p-1.5">
+            <X size={16} />
+          </button>
+
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <span className="text-[13px] tracking-[0.38em] text-white/60 uppercase">{project.category}</span>
+            {project.tag && (
+              <span className="text-[13px] font-black tracking-widest uppercase border border-white/12 px-2 py-0.5 text-white/68">
+                {project.tag}
+              </span>
+            )}
+          </div>
+
+          <h2 className="text-2xl font-black leading-tight mb-4">{project.title}</h2>
+          <p className="text-white/78 text-sm leading-relaxed font-light mb-7">{project.description}</p>
+
+          <ul className="space-y-2.5 border-t border-white/14 pt-6">
+            {project.specs.map((s, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-white/68">
+                <span className="w-1 h-1 rounded-full bg-white/22 mt-1.5 shrink-0" />
+                {s}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// Card — shows image, category, title, tag and "Read more" only
+function ProjectCard({ project, index, onClick }) {
+  return (
+    <motion.div
+      custom={index}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: '-40px' }}
+      variants={fadeUp}
+      onClick={onClick}
+      className="border border-white/15 bg-white/[0.012] hover:border-white/18 transition-all duration-300 overflow-hidden cursor-pointer group"
+    >
+      {/* Image */}
+      <div className="relative overflow-hidden">
+        <div className="w-full h-52">
+          <img src={project.images[0]} alt={project.title} loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        </div>
+        {/* Tag badge */}
+        {project.tag && (
+          <div className="absolute top-3 left-3 bg-white text-black text-[13px] font-black uppercase tracking-widest px-2.5 py-1">
+            {project.tag}
+          </div>
+        )}
+        {/* Image count if multiple */}
+        {project.images.length > 1 && (
+          <div className="absolute top-3 right-3 bg-black/60 text-white/78 text-[13px] font-mono px-1.5 py-0.5">
+            {project.images.length} photos
+          </div>
+        )}
+      </div>
+
+      {/* Caption */}
+      <div className="p-5">
+        <p className="text-[13px] tracking-[0.38em] text-white/60 uppercase mb-2">{project.category}</p>
+        <h3 className="font-black text-sm leading-snug mb-3 group-hover:text-white/90 transition-colors">{project.title}</h3>
+        <span className="text-[13px] font-black uppercase tracking-widest text-white/62 group-hover:text-white/78 transition-colors flex items-center gap-1">
+          Read more
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+const projects = [
+  {
+    id: 1,
+    title: 'FV01 — Full-Scale 3D Printed F1 Model',
+    category: 'Scale Modelling',
+    tag: 'Flagship Build',
+    description: 'The FV01 is one of the most advanced 3D printed F1 scale models built in India — a full multi-part build of the Mercedes W11 #44, printed across hundreds of components in high-detail PLA. Assembled with accurate aerodynamic surfaces, carbon-look livery, and housed in a custom acrylic showcase. A benchmark in what precision FDM printing can achieve.',
+    images: ['/projects/fv01_model.webp'],
+    specs: ['Multi-part PLA assembly — 100+ components','Custom acrylic display case','Mercedes W11 #44 accurate livery','Full aerodynamic surface detail'],
+  },
+  {
+    id: 2,
+    title: "India's Fastest FPV Drone — 329 km/h",
+    category: 'Aerospace · High Performance',
+    tag: 'Record Build',
+    description: "A fully custom high-speed FPV racing drone with a 3D printed structural frame, motor mounts, and aerodynamic shrouds — this build hit 329 km/h, making it India's fastest recorded drone. Every printed component was engineered for aerodynamic efficiency and weight minimisation while surviving extreme thrust loads.",
+    images: ['/projects/drone_fast.webp'],
+    specs: ['Top speed: 329 km/h','3D printed frame, mounts and shrouds','Aerodynamic profile optimised for speed','Lightweight PLA + carbon fibre hybrid'],
+  },
+  {
+    id: 3,
+    title: 'Autonomous Disaster Management Drone',
+    category: 'Aerospace · Autonomous Systems',
+    tag: 'Runner-Up · Aerothon',
+    description: 'Built for Aerothon — a national-level autonomous UAV competition — this hexacopter completed a full mission without any human intervention, from takeoff through waypoint navigation to payload drop and safe return. State machine architecture, sensor-driven decision making, and layered failsafe logic. Runner-up at the national final.',
+    images: ['/projects/drone_disaster.webp'],
+    specs: ['Fully autonomous — zero human intervention during mission','State machine architecture with failsafe recovery','3D printed payload drop mechanism and landing legs','Runner-up at Aerothon national competition'],
+  },
+  {
+    id: 4,
+    title: 'Robotic Arm — Servo-Driven, Arduino Controlled',
+    category: 'Robotics · Education',
+    tag: 'Client Delivery',
+    description: 'A fully 3D printed multi-joint robotic arm with servo actuation and Arduino control, delivered to BMS College of Engineering. The build includes a sturdy ventilated base housing, two articulated arm links with bearing-seated joints, and a functional gripper end-effector — all printed in clean white PLA with tight dimensional tolerances for smooth mechanical fit. The client was fully satisfied with the print quality and assembly.',
+    images: ['/projects/robotic_arm_1.webp', '/projects/robotic_arm_2.webp', '/projects/robotic_arm_3.webp', '/projects/robotic_arm_4.webp'],
+    specs: [
+      'Delivered to BMS College of Engineering, Bengaluru',
+      'Servo-driven joints with Arduino control',
+      'Bearing-seated articulation for smooth movement',
+      'Functional gripper end-effector',
+      'Source model — MakerWorld #1134925',
+    ],
+  },
+  {
+    id: 5,
+    title: 'Low-Bypass Turbofan Engine — Full Assembly',
+    category: 'Mechanical Engineering',
+    tag: 'Showcase Build',
+    description: 'A fully 3D printed low-bypass turbofan based on 1960s jet engine architecture — the same configuration that powered the Boeing 727 and DC-9. Built with two-tone PLA (white casing, bronze-tan blades), the model shows the actual internal layout: fan stages, axial compressor, combustion section and turbine stages. Every blade row printed and assembled by hand.',
+    images: ['/projects/turbofan_1.webp', '/projects/turbofan_2.webp', '/projects/turbofan_3.webp'],
+    specs: ['10+ compressor and turbine stages','100+ individually printed and assembled parts','Dual-tone PLA — white casing, bronze-tan blades','Based on 1960s low-bypass turbofan architecture'],
+  },
+  {
+    id: 6,
+    title: 'Talon 1400 — Fixed-Wing UAV Airframe',
+    category: 'Aerospace · Fixed-Wing',
+    tag: 'Defence Client',
+    description: 'A full-scale Talon 1400 fixed-wing UAV airframe, 3D printed and assembled for a defence-sector client. The build covers the complete fuselage body, nose cone, twin tail booms, vertical stabilisers, and all wing mating surfaces — printed in ASA for UV and weather resistance with PA6-CF reinforcement at all structural load points. Every panel was printed to tight dimensional tolerances to ensure correct wing-to-fuselage alignment and clean aerodynamic continuity across the 1400mm span. Client details and operational specifics are confidential.',
+    images: ['/projects/talon_1400.png'],
+    specs: [
+      'Wingspan: 1400mm full-scale airframe',
+      'Fuselage, nose cone, tail booms and stabilisers — fully 3D printed',
+      'ASA outer surfaces — UV stable, weather resistant',
+      'PA6-CF used at all structural load and wing-mount points',
+      'Tight dimensional tolerance for aerodynamic surface continuity',
+      'Delivered to a defence-sector client — operational details confidential',
+    ],
+  },
+];
+
 
 const pageVariants = {
   initial: { opacity: 0, x: 50 },
   animate: { opacity: 1, x: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
   exit:    { opacity: 0, x: -50, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
 };
-
-// ── What we design ────────────────────────────────────────────────────────────
-const capabilities = [
-  {
-    icon: '⬡',
-    title: 'UAV & Drone Components',
-    desc: 'Motor mounts, camera gimbals, payload bays, landing gear, boom arms, antenna brackets, and aerodynamic fairings — designed in Fusion 360 for structural integrity and printability.',
-  },
-  {
-    icon: '◈',
-    title: 'Enclosures & Housings',
-    desc: 'Electronics project boxes, battery enclosures, controller housings, and device shells — modelled to your exact internal PCB layout, port positions, and mounting hole pattern.',
-  },
-  {
-    icon: '△',
-    title: 'Brackets, Mounts & Jigs',
-    desc: 'One-off mounting brackets, alignment jigs, fixtures, and custom clamps for specific hardware — toleranced to fit and function without post-processing.',
-  },
-  {
-    icon: '◉',
-    title: 'Automotive Components',
-    desc: 'Custom brackets, sensor mounts, cable guides, interior trims, and replacement parts for automotive builds — designed from measurements or CAD reference.',
-  },
-  {
-    icon: '◇',
-    title: 'Structural Mechanical Parts',
-    desc: 'Load-bearing arms, linkages, gearbox housings, and functional assemblies — designed with correct wall thickness, infill strategy, and material selection in mind.',
-  },
-  {
-    icon: '○',
-    title: 'Custom Hardware Adapters',
-    desc: 'Thread adapters, pipe fittings, interface plates, and bespoke connectors to join off-the-shelf parts that were never designed to work together.',
-  },
-];
-
-// ── Pricing tiers ─────────────────────────────────────────────────────────────
-const tiers = [
-  {
-    name: 'Basic',
-    price: '₹500 – ₹1,500',
-    tag: 'Simple Geometry',
-    desc: 'Single-body parts, simple brackets, mounts, and enclosures. You provide dimensions or a sketch — we model and deliver print-ready STL and STEP files.',
-    includes: [
-      'Up to 2 design revisions',
-      'STL file delivered',
-      'Print-ready optimisation',
-      '2–3 day turnaround',
-    ],
-  },
-  {
-    name: 'Standard',
-    price: '₹1,500 – ₹4,000',
-    tag: 'Multi-Part / Detailed',
-    desc: 'Multi-body assemblies, drone components, enclosures with inserts, and detailed mechanical parts. Modelled with correct tolerances, wall thickness, and print orientation.',
-    includes: [
-      'Up to 3 design revisions',
-      'Full assembly STEP + STL files',
-      'Tolerance engineering for fit',
-      '3–5 day turnaround',
-    ],
-    highlight: true,
-  },
-  {
-    name: 'Premium',
-    price: '₹4,000+',
-    tag: 'Complex / Organic',
-    desc: 'Complex mechanical assemblies, full drone airframes, multi-part UAV systems, and engineering-grade components requiring FEA-informed wall and rib design.',
-    includes: [
-      'Unlimited revisions within scope',
-      'Full source files (STEP, STL, OBJ)',
-      'Structural advice included',
-      'Timeline agreed per project',
-    ],
-  },
-];
-
-// ── Process steps ─────────────────────────────────────────────────────────────
-const process = [
-  { n: '01', title: 'Share Your Idea',   desc: 'Send us a sketch, photo, reference image, or just describe what you need. No CAD required.' },
-  { n: '02', title: 'We Quote',          desc: 'We assess complexity and send a design quote and timeline. Fast — usually within 24 hours.' },
-  { n: '03', title: 'Design & Preview',  desc: 'We model in 3D and share renders for your feedback. You see it before anything is printed.' },
-  { n: '04', title: 'Revise & Finalise', desc: 'Adjust until it\'s exactly right. Your approval is required before we move to production.' },
-  { n: '05', title: 'Print (Optional)',  desc: 'We can print the final design in-house, or deliver the STL files for you to print yourself.' },
-];
-
-// ── Gallery placeholder grid ───────────────────────────────────────────────────
-const galleryItems = [
-  { label: 'UAV Motor Mount',            aspect: 'tall' },
-  { label: 'Electronics Enclosure',      aspect: 'wide' },
-  { label: 'Drone Camera Gimbal',        aspect: 'square' },
-  { label: 'Custom Bracket Assembly',    aspect: 'wide' },
-  { label: 'Automotive Sensor Mount',    aspect: 'tall' },
-  { label: 'RC Aircraft Landing Gear',   aspect: 'square' },
-];
-
-function GalleryPlaceholder({ label, aspect }) {
-  const h = aspect === 'tall' ? 'h-72' : aspect === 'wide' ? 'h-44' : 'h-56';
-  return (
-    <div className={`relative ${h} bg-[#0e0e12] border border-white/8 overflow-hidden group`}>
-      {/* Animated scan line */}
-      <motion.div
-        className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
-        animate={{ top: ['0%', '100%', '0%'] }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-      />
-      {/* Corner accents */}
-      <div className="absolute top-3 left-3 w-4 h-4 border-l border-t border-white/20" />
-      <div className="absolute top-3 right-3 w-4 h-4 border-r border-t border-white/20" />
-      <div className="absolute bottom-3 left-3 w-4 h-4 border-l border-b border-white/20" />
-      <div className="absolute bottom-3 right-3 w-4 h-4 border-r border-b border-white/20" />
-      {/* Label */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-px bg-white/15" />
-        <p className="text-[11px] tracking-[0.4em] text-white/20 uppercase text-center px-4">{label}</p>
-        <p className="text-[10px] tracking-[0.3em] text-white/12 uppercase">Photo coming soon</p>
-        <div className="w-8 h-px bg-white/15" />
-      </div>
-      {/* Hover shimmer */}
-      <div className="absolute inset-0 bg-white/0 group-hover:bg-white/[0.02] transition-colors duration-300" />
-    </div>
-  );
-}
-
-export default function DesignPage() {
+export default function ProjectsPage() {
   useSEO({
-    title: 'Custom 3D Design Service Bengaluru — UAV, Drone & Engineering Parts | Dr.PrinT',
-    description: 'No CAD file? Dr.PrinT offers custom 3D modelling and design in Bengaluru. We design product housings, drone parts, figurines, scale models and brackets from your sketch or photo. Design from ₹500.',
-    canonical: 'https://drprint.in/design',
-    schema: {
-      '@context': 'https://schema.org',
-      '@type': 'Service',
-      'name': 'Custom 3D Design Service',
-      'description': '3D modelling and design service in Bengaluru. We create print-ready 3D models from sketches, photos, or descriptions. Design fee from ₹500.',
-      'provider': {'@id': 'https://drprint.in/#business'},
-      'areaServed': {'@type': 'Country', 'name': 'India'},
-      'offers': [
-        {'@type': 'Offer', 'name': 'Basic Design', 'price': '500', 'priceCurrency': 'INR', 'description': 'Simple single-body parts, holders, brackets'},
-        {'@type': 'Offer', 'name': 'Standard Design', 'price': '1500', 'priceCurrency': 'INR', 'description': 'Multi-part assemblies, figurines, drone components'},
-        {'@type': 'Offer', 'name': 'Premium Design', 'price': '4000', 'priceCurrency': 'INR', 'description': 'Complex organic models, character sculpts, large assemblies'},
-      ],
-    },
+    title: '3D Printing Portfolio — Drone Frames, F1 Models, UAV Parts | Dr.PrinT Bengaluru',
+    description: "See Dr.PrinT's 3D printing portfolio — India's fastest FPV drone (329 km/h), full-scale F1 car models, autonomous UAV systems, robotic arms, turbofan engines, and defence UAV airframes. All printed in Bengaluru.",
+    canonical: 'https://drprint.in/projects',
   });
 
-  const [openTier, setOpenTier] = useState(1);
+  const [selected, setSelected] = useState(null);
 
   return (
-    <motion.div className="min-h-screen bg-black text-white"
+    <motion.div className="min-h-screen bg-black text-white pt-24 pb-24"
       variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <div className="max-w-6xl mx-auto px-6">
 
-      {/* ── HERO ── */}
-      <section className="pt-36 pb-24 px-6 relative overflow-hidden">
-        {/* Background grid */}
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black pointer-events-none" />
+        {/* Header */}
+        <motion.div initial="hidden" animate="visible" variants={fadeUp} className="mb-14 text-center">
+          <p className="text-sm tracking-[0.5em] text-white/65 uppercase mb-4">Our Work</p>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4">Projects</h1>
+          <div className="w-10 h-px bg-white/12 mx-auto mb-5" />
+          <p className="text-white/70 text-sm font-light max-w-md mx-auto leading-relaxed">
+            From scale models to aerospace systems. Click any project to learn more.
+          </p>
+        </motion.div>
 
-        <div className="max-w-5xl mx-auto relative">
-          <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
-            <motion.p variants={staggerItem}
-              className="text-[11px] tracking-[0.7em] text-white/35 uppercase mb-6">
-              Custom 3D Design Service
-            </motion.p>
-            <motion.h1 variants={staggerItem}
-              className="text-5xl md:text-7xl font-black tracking-tight leading-none mb-8">
-              Got an idea?<br />
-              <span className="text-white/35">We'll engineer it.</span>
-            </motion.h1>
-            <motion.p variants={staggerItem}
-              className="text-white/60 text-lg font-light max-w-xl leading-relaxed mb-10">
-              Send us a sketch, a drawing, dimensions, or just a clear description — we model it in Fusion 360 or SolidWorks, validate it for printability, and can produce it in-house.
-            </motion.p>
-            <motion.div variants={staggerItem} className="flex flex-col sm:flex-row gap-3">
-              <a href="https://wa.me/919449214905?text=Hi%2C%20I%20have%20a%20custom%20design%20idea%20I%27d%20like%20to%20discuss"
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2.5 px-8 py-4 bg-white text-black text-[13px] font-black uppercase tracking-[0.18em] hover:bg-white/85 transition-all">
-                <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zm-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                </svg>
-                Start on WhatsApp
-              </a>
-              <Link to="/contact"
-                className="flex items-center justify-center px-8 py-4 border border-white/20 text-white/80 text-[13px] font-black uppercase tracking-[0.18em] hover:bg-white hover:text-black transition-all">
-                Send a Brief
-              </Link>
-            </motion.div>
-          </motion.div>
+        {/* 2-column grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-12">
+          {projects.map((project, i) => (
+            <ProjectCard key={project.id} project={project} index={i}
+              onClick={() => setSelected(project)}
+/>
+          ))}
         </div>
-      </section>
 
-      {/* ── WHAT WE DESIGN ── */}
-      <section className="py-20 px-6 bg-[#080808] border-t border-white/8">
-        <div className="max-w-6xl mx-auto">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="mb-12">
-            <p className="text-[11px] tracking-[0.55em] text-white/30 uppercase mb-3">Capabilities</p>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight">What We Design</h2>
-            <p className="text-white/50 text-sm font-light mt-2 max-w-lg">
-              We design functional engineering parts — primarily for UAVs, drones, automotive, and electronics. If you have dimensions, a sketch, or a reference part, we can model it in Fusion 360 or SolidWorks.
+        {/* CTA */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}
+          variants={fadeUp} custom={5}
+          className="border border-white/15 p-10 flex flex-col sm:flex-row items-center justify-between gap-6 bg-white/[0.01]">
+          <div>
+            <p className="text-[12px] tracking-[0.5em] text-white/60 uppercase mb-2">Have a Project in Mind?</p>
+            <h2 className="text-2xl font-black">Let's Build Something</h2>
+            <p className="text-white/70 text-sm font-light mt-1 max-w-xs leading-relaxed">
+              Replica, prototype, or aerospace component — we are ready.
             </p>
-          </motion.div>
-
-          <motion.div variants={staggerContainer} initial="hidden" whileInView="visible"
-            viewport={{ once: true }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {capabilities.map((c, i) => (
-              <motion.div key={i} variants={staggerItem}
-                className="group relative border border-white/8 p-6 hover:border-white/22 transition-all duration-300 overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.02)' }}>
-                {/* Hover left bar */}
-                <motion.div className="absolute left-0 top-0 w-[2px] bg-white/30 pointer-events-none"
-                  initial={{ height: 0 }} whileHover={{ height: '100%' }}
-                  transition={{ duration: 0.3, ease: 'easeOut' }} />
-                <span className="text-2xl text-white/20 mb-4 block group-hover:text-white/40 transition-colors">{c.icon}</span>
-                <h3 className="font-black text-sm mb-2 leading-snug">{c.title}</h3>
-                <p className="text-white/50 text-xs font-light leading-relaxed">{c.desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── GALLERY ── */}
-      <section className="py-20 px-6 bg-black border-t border-white/8">
-        <div className="max-w-6xl mx-auto">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="mb-12">
-            <p className="text-[11px] tracking-[0.55em] text-white/30 uppercase mb-3">Design Work</p>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight">Our Design Gallery</h2>
-            <p className="text-white/50 text-sm font-light mt-2 max-w-lg">
-              Photos of our past design projects coming soon. In the meantime —{' '}
-              <Link to="/projects" className="text-white/70 underline underline-offset-2 hover:text-white transition-colors">
-                see our printed project gallery
-              </Link>.
-            </p>
-          </motion.div>
-
-          {/* Masonry-style grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {galleryItems.map((item, i) => (
-              <motion.div key={i} custom={i} initial="hidden" whileInView="visible"
-                viewport={{ once: true }} variants={fadeUp}>
-                <GalleryPlaceholder label={item.label} aspect={item.aspect} />
-              </motion.div>
-            ))}
           </div>
+          <Link to="/contact"
+            className="shrink-0 px-8 py-3.5 bg-white text-black text-[13px] font-black uppercase tracking-[0.18em] hover:bg-white/85 transition-all duration-300">
+            Start a Project
+          </Link>
+        </motion.div>
+      </div>
 
-          <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-            className="text-center text-white/20 text-xs tracking-[0.4em] uppercase mt-8">
-            Gallery photos will be updated as projects are completed
-          </motion.p>
-        </div>
-      </section>
-
-      {/* ── PRICING ── */}
-      <section className="py-20 px-6 bg-[#080808] border-t border-white/8">
-        <div className="max-w-5xl mx-auto">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="mb-12">
-            <p className="text-[11px] tracking-[0.55em] text-white/30 uppercase mb-3">Pricing</p>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight">Design Service Rates</h2>
-            <p className="text-white/50 text-sm font-light mt-2 max-w-lg">
-              All design fees are separate from printing costs. Printing charges apply if you order prints from us.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {tiers.map((t, i) => (
-              <motion.div key={i} custom={i} initial="hidden" whileInView="visible"
-                viewport={{ once: true }} variants={fadeUp}
-                onClick={() => setOpenTier(i)}
-                className={`relative border p-7 cursor-pointer transition-all duration-300 ${
-                  openTier === i
-                    ? 'border-white/45 bg-white/[0.055]'
-                    : 'border-white/10 hover:border-white/22 bg-white/[0.018]'
-                } ${t.highlight ? 'ring-1 ring-white/20' : ''}`}>
-                {t.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-black text-[10px] font-black uppercase tracking-[0.3em] px-3 py-1">
-                    Most Popular
-                  </div>
-                )}
-                <p className="text-[10px] tracking-[0.4em] text-white/35 uppercase mb-2">{t.tag}</p>
-                <h3 className="text-xl font-black mb-1">{t.name}</h3>
-                <p className="text-2xl font-black text-white mb-4">{t.price}</p>
-                <p className="text-white/55 text-xs font-light leading-relaxed mb-5">{t.desc}</p>
-                <AnimatePresence>
-                  {openTier === i && (
-                    <motion.ul initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }}
-                      className="space-y-2 border-t border-white/10 pt-4 overflow-hidden">
-                      {t.includes.map((inc, j) => (
-                        <li key={j} className="flex items-center gap-2 text-xs text-white/60">
-                          <span className="text-white/30">✓</span> {inc}
-                        </li>
-                      ))}
-                    </motion.ul>
-                  )}
-                </AnimatePresence>
-                {openTier !== i && (
-                  <p className="text-[10px] text-white/25 tracking-widest uppercase">Tap to see details</p>
-                )}
-              </motion.div>
-            ))}
-          </div>
-
-          <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-            className="text-white/30 text-xs font-light text-center mt-6 leading-relaxed">
-            Final pricing depends on complexity. We always quote before starting. No surprise charges.
-          </motion.p>
-        </div>
-      </section>
-
-      {/* ── PROCESS ── */}
-      <section className="py-20 px-6 bg-black border-t border-white/8">
-        <div className="max-w-5xl mx-auto">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="mb-12">
-            <p className="text-[11px] tracking-[0.55em] text-white/30 uppercase mb-3">How It Works</p>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight">From Idea to Object</h2>
-          </motion.div>
-
-          <div className="relative">
-            {/* Vertical connector line */}
-            <div className="absolute left-6 top-0 bottom-0 w-px bg-white/8 hidden md:block" />
-
-            <div className="space-y-0">
-              {process.map((step, i) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true, margin: '-40px' }}
-                  transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex gap-8 py-7 border-b border-white/6 last:border-0 group">
-                  {/* Step number dot */}
-                  <div className="relative shrink-0 w-12 hidden md:flex items-start justify-center pt-1">
-                    <div className="w-3 h-3 rounded-full border border-white/25 bg-black group-hover:border-white/60 group-hover:bg-white/10 transition-all duration-300" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-[10px] tracking-[0.4em] text-white/25 uppercase md:hidden">{step.n}</span>
-                      <h3 className="font-black text-base">{step.title}</h3>
-                    </div>
-                    <p className="text-white/50 text-sm font-light leading-relaxed">{step.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ── */}
-      <section className="py-20 px-6 bg-[#080808] border-t border-white/8">
-        <div className="max-w-4xl mx-auto">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-            className="border border-white/10 p-10 md:p-14 text-center"
-            style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)' }}>
-            <p className="text-[11px] tracking-[0.6em] text-white/30 uppercase mb-4">Ready to Start?</p>
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-4">
-              Let's design something.
-            </h2>
-            <p className="text-white/50 text-sm font-light max-w-md mx-auto leading-relaxed mb-10">
-              Share your idea on WhatsApp or fill in our brief — we'll get back with a quote within 24 hours. No obligation.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a href="https://wa.me/919449214905?text=Hi%2C%20I%20have%20a%20custom%20design%20idea%20I%27d%20like%20to%20discuss"
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-10 py-4 bg-white text-black text-[13px] font-black uppercase tracking-[0.2em] hover:bg-white/85 transition-all">
-                WhatsApp Us
-              </a>
-              <Link to="/contact"
-                className="flex items-center justify-center px-10 py-4 border border-white/20 text-white/75 text-[13px] font-black uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all">
-                Send a Brief
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      {/* Detail modal */}
+      <AnimatePresence>
+        {selected && <ProjectModal project={selected} onClose={() => setSelected(null)} />}
+      </AnimatePresence>
 
     </motion.div>
   );
-}
+};

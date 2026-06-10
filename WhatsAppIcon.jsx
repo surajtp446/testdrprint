@@ -1,33 +1,20 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
-// Uses a DOM ref + rAF instead of React state — zero re-renders, perfectly smooth.
-export default function ScrollProgress() {
-  const barRef = useRef(null);
+// Uses Lenis for smooth-scroll sites — falls back to native scrollTo.
+// window.__lenis is set in App.jsx after Lenis initialises.
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
 
   useEffect(() => {
-    const bar = barRef.current;
-    if (!bar) return;
-
-    let rafId;
-    function update() {
-      const el  = document.documentElement;
-      const max = el.scrollHeight - el.clientHeight;
-      const pct = max > 0 ? (window.scrollY / max) * 100 : 0;
-      bar.style.width = `${pct}%`;
-      rafId = requestAnimationFrame(update);
+    if (window.__lenis) {
+      window.__lenis.scrollTo(0, { immediate: true });
+    } else {
+      window.scrollTo(0, 0);
     }
-    rafId = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
+  }, [pathname]);
 
-  return (
-    <div ref={barRef} style={{
-      position: 'fixed', top: 0, left: 0, zIndex: 9999,
-      height: '1.5px',
-      width: '0%',
-      background: 'rgba(255,255,255,0.65)',
-      pointerEvents: 'none',
-      willChange: 'width',
-    }} />
-  );
-}
+  return null;
+};
+
+export default ScrollToTop;
