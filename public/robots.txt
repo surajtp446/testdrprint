@@ -1,0 +1,22 @@
+# Dr.PrinT — drprint.in
+# Allow all search engines full access
+
+User-agent: *
+Allow: /
+Disallow: /payment/
+
+# Allow calculator (useful tool page — let it rank)
+Allow: /calculator/
+
+# Sitemap
+Sitemap: https://drprint.in/sitemap.xml
+
+# Specific bots
+User-agent: Googlebot
+Allow: /
+Disallow: /payment/
+
+User-agent: Googlebot-Image
+Allow: /products/
+Allow: /projects/
+Allow: /og-image.jpg
